@@ -1,0 +1,167 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#101827">
+<title>MNQ Trading Assistant</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#101827;color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,Arial,sans-serif}
+main{max-width:520px;margin:auto;padding:22px 18px 60px}
+h1{font-size:26px;margin:12px 0 5px}
+h2{font-size:21px;margin:5px 0 15px}
+p{line-height:1.5;color:#cbd5e1}
+small{color:#94a3b8}
+.card{background:#1e293b;border:1px solid #334155;border-radius:18px;padding:20px;margin:16px 0}
+button{display:block;width:100%;border:1px solid #475569;border-radius:13px;background:#334155;color:white;font-size:17px;font-weight:600;text-align:left;padding:17px;margin:10px 0;cursor:pointer}
+button:active{background:#475569}
+.primary{background:#2563eb;text-align:center}
+.back{background:transparent;text-align:center}
+.buy{color:#4ade80}
+.sell{color:#fb7185}
+.tag{font-size:12px;letter-spacing:1px;color:#93c5fd;font-weight:700}
+.result{background:#0f172a;border-radius:12px;padding:15px;margin-top:15px}
+.result h2{font-size:29px}
+</style>
+</head>
+<body>
+<main>
+<h1>📈 MNQ Trading Assistant</h1>
+<small>Manual decision support • No live orders</small>
+<div id="app"></div>
+</main>
+<script>
+const app=document.getElementById("app");
+let history=[];
+function screen(html){
+ app.innerHTML=html;
+ window.scrollTo(0,0);
+}
+function go(fn){
+ history.push(app.innerHTML);
+ fn();
+}
+function back(){
+ if(history.length)screen(history.pop());
+ else home();
+}
+function buttons(items){
+ return items.map(x=>`<button onclick="${x[1]}">${x[0]}</button>`).join("");
+}
+function page(label,title,content){
+ screen(`<div class="card"><div class="tag">${label}</div><h2>${title}</h2>${content}</div><button class="back" onclick="back()">← Back</button><button class="back" onclick="home()">Start over</button>`);
+}
+function result(side,entry,tp,exit,notes=""){
+ const cls=side==="BUY"?"buy":"sell";
+ page("TRADE INSTRUCTIONS",`<span class="${cls}">${side} MNQ</span>`,
+ `<div class="result"><p><b>Entry:</b> ${entry}</p><p><b>Take profit:</b> ${tp}</p><p><b>Exit:</b> ${exit}</p>${notes?`<p>${notes}</p>`:""}</div><small>Protective stop not defined. Verify market conditions before trading.</small>`);
+}
+function home(){
+ history=[];
+ screen(`<div class="card"><div class="tag">SELECT TRADING PATHWAY</div><h2>What day is it?</h2>${buttons([
+ ["Monday","go(monday)"],
+ ["Tuesday–Thursday","go(midweek)"],
+ ["Friday","go(friday)"]
+ ])}</div><small>Rules are user-defined and have not been backtested.</small>`);
+}
+function monday(){
+ page("MONDAY • 7:00 AM RT • 1-HOUR CHART","MACD / OBV orientation?",
+ buttons([
+ ["↑ Both Up","go(()=>mondayResult('BUY'))"],
+ ["↓ Both Down","go(()=>mondayResult('SELL SHORT'))"],
+ ["↔ Opposite","go(mondayWeekend)"]
+ ]));
+}
+function mondayResult(side){
+ result(side,"Close of qualifying 1-hour candle",
+ "+40 MNQ points",
+ side==="BUY"?"Next 1-hour candle closes red":"Next 1-hour candle closes green");
+}
+function mondayWeekend(){
+ page("MONDAY • OPPOSITE BRANCH","Overall movement Friday 5 PM–Sunday 7 AM?",
+ buttons([
+ ["↑ Up","go(()=>mondayResult('SELL SHORT'))"],
+ ["↓ Down","go(()=>mondayResult('BUY'))"]
+ ]));
+}
+function midweek(){
+ page("TUESDAY–THURSDAY • 7 AM • 1-HOUR CHART",
+ "MACD / OBV aligned. Which direction?",
+ buttons([
+ ["↑ Both Up","go(()=>ccl('up'))"],
+ ["↓ Both Down","go(()=>ccl('down'))"]
+ ]));
+}
+function ccl(dir){
+ page("7 AM • CCL EXTREME CHECK",
+ "Is CCL above +200 or below −200?",
+ buttons([
+ ["YES — Extreme","go(()=>midResult(dir==='up'?'SELL SHORT':'BUY','At 8:30 AM RT'))"],
+ ["NO — Not extreme","go(mid830)"]
+ ]));
+}
+function midResult(side,entry){
+ result(side,entry,
+ "High minus low of the 8 AM 30-minute candle, measured in MNQ points",
+ side==="BUY"?"Next 30-minute candle closes red":"Next 30-minute candle closes green",
+ "Target price calculation and protective stop require confirmation.");
+}
+function mid830(){
+ page("TUESDAY–THURSDAY • 8:30 AM RT",
+ "What is MACD / OBV orientation?",
+ buttons([
+ ["↑ Both Up","go(()=>midResult('BUY','8:30 AM RT; exact entry trigger to confirm'))"],
+ ["↓ Both Down","go(()=>midResult('SELL SHORT','8:30 AM RT'))"],
+ ["↔ Opposite","go(midNextCandle)"]
+ ]));
+}
+function midNextCandle(){
+ page("MIDWEEK • OPPOSITE BRANCH",
+ "Wait for the next 30-minute candle to close. What color is it?",
+ buttons([
+ ["Green","go(()=>midResult('BUY','At the close of the completed green 30-minute candle'))"],
+ ["Red","go(()=>midResult('SELL SHORT','At the close of the completed red 30-minute candle'))"]
+ ]));
+}
+function friday(){
+ page("FRIDAY • 8:30 AM RT • 30-MINUTE CHART",
+ "What is MACD / OBV orientation?",
+ buttons([
+ ["↑ Both Up","go(()=>friResult('BUY'))"],
+ ["↓ Both Down","go(()=>friResult('SELL SHORT'))"],
+ ["↔ Opposite","go(friOpposite)"]
+ ]));
+}
+function friResult(side){
+ result(side,
+ side==="BUY"?"8:30 AM RT, at candle high":"8:30 AM RT, at candle low",
+ "+20 MNQ points",
+ side==="BUY"?
+ "Next 30-minute bar closes red AND below previous bar open":
+ "Next 30-minute bar closes green AND above previous bar open");
+}
+function friOpposite(){
+ page("FRIDAY • OPPOSITE BRANCH",
+ "What color is the next completed 30-minute candle?",
+ buttons([
+ ["Green","go(()=>friBreakout('BUY'))"],
+ ["Red","go(()=>friBreakout('SELL SHORT'))"]
+ ]));
+}
+function friBreakout(side){
+ const entry=side==="BUY"?
+ "Buy when price breaks above the previous completed green candle's high":
+ "Sell short when price breaks below the previous completed red candle's low";
+ page("FRIDAY • WAIT FOR ENTRY",
+ `<span class="${side==='BUY'?'buy':'sell'}">${side} BREAKOUT</span>`,
+ `<p>${entry}.</p><p><b>Take profit:</b> +20 MNQ points</p><p><b>Exit:</b> Not yet specified for this branch.</p>
+ <p>If no entry triggers, continue to the next completed 30-minute candle.</p>
+ <button class="primary" onclick="go(friOpposite)">No entry — Next candle →</button>
+ <small>Protective stop not defined.</small>`);
+}
+home();
+</script>
+</body>
+</html>
